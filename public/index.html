@@ -672,6 +672,8 @@ function hex2rgb(h){h=h.replace("#","");return[parseInt(h.slice(0,2),16),parseIn
 function mix(a,b,t){var A=hex2rgb(a),B=hex2rgb(b);return"#"+[0,1,2].map(function(i){return Math.round(A[i]+(B[i]-A[i])*t).toString(16).padStart(2,"0")}).join("")}
 function pressSeg(group,v){Array.prototype.forEach.call(group.querySelectorAll("button"),function(b){b.setAttribute("aria-pressed",String(b.dataset.v===v))})}
 function bindSeg(id,key,after){var g=$(id);g.addEventListener("click",function(e){var b=e.target.closest("button");if(!b)return;state[key]=b.dataset.v;pressSeg(g,b.dataset.v);if(after)after();render()})}
+var METALLIC={"#C6982E":1,"#B4BAC1":1};                 // binding presets rendered as metal, not paint
+function isMetal(c){return !state.bindFade&&!!METALLIC[String(c).toUpperCase()]}
 function arts(sf){return(sf||state.surface)==="base"?state.bases:state.tops}
 function cur(){return arts()[0]}
 function setArt(a){var A=arts();A[0]=a;A[1]=a}
@@ -789,7 +791,7 @@ function drawSki(stage,y,geo,o){
   if(o.active)el("path",{d:geo.d,fill:"none",stroke:"#ff2e88","stroke-width":5,"stroke-dasharray":"18 12",transform:"translate(0,0)"},g);
 
   if(state.binding!=="none"&&state.surface!=="base")drawBinding(g,geo,id);
-  if(state.boot&&state.surface!=="base")drawBoot(g,geo);
+  if(state.boot&&state.surface!=="base")drawBoot(g,geo,y<100?-1:1);   // top lane is the left ski: its outside is up
 }
 
 /* Bindings, drawn top-down in millimetres from photos of real mounted bindings.
@@ -799,9 +801,10 @@ function drawBinding(g,geo,id){
   var ac;
   if(state.bindFade)ac="url(#"+id+"fz)";
   else{var gid=id+"acc",gd=el("defs",null,b),lg=el("linearGradient",{id:gid,x1:0,y1:0,x2:0,y2:1},gd);
-    el("stop",{offset:0,"stop-color":mix(state.bindColor,"#ffffff",.5)},lg);
-    el("stop",{offset:.5,"stop-color":state.bindColor},lg);
-    el("stop",{offset:1,"stop-color":mix(state.bindColor,"#000000",.34)},lg);ac="url(#"+gid+")"}
+    var bc=state.bindColor,stops=isMetal(bc)
+      ?[[0,mix(bc,"#ffffff",.7)],[.2,mix(bc,"#ffffff",.22)],[.42,bc],[.52,mix(bc,"#000000",.42)],[.64,mix(bc,"#ffffff",.3)],[1,mix(bc,"#000000",.48)]]   // banded like polished metal
+      :[[0,mix(bc,"#ffffff",.5)],[.5,bc],[1,mix(bc,"#000000",.34)]];
+    stops.forEach(function(q){el("stop",{offset:q[0],"stop-color":q[1]},lg)});ac="url(#"+gid+")"}
   var lum=(function(h){var c=hex2rgb(h);return c[0]*.3+c[1]*.59+c[2]*.11})(state.bindColor);
   var trim=state.bindFade?"#F2D21B":(lum>205?"#D5232B":"#15181c"),DK="#1b1e22",CH="#c3cad1";
   var edge=geo.waistHalf/mu+3;                                   // ski edge, mm from centre
@@ -934,9 +937,10 @@ function bootParts(){
   var sh=state.bootColor,bk=state.buckleColor,c=hex2rgb(sh),dark=(c[0]*.3+c[1]*.59+c[2]*.11)<110;
   return{sh:sh,bk:bk,dark:dark,line:dark?"rgba(255,255,255,.2)":"rgba(0,0,0,.28)",
     sole:dark?"#e9ebec":mix(sh,"#000000",.55),liner:"#15171a",metal:"#c7ced4"}}
-function drawBoot(g,geo){
-  var mu=U/10,m=H/2,cx=geo.x0+geo.L*geo.waistAt,b=el("g",null,g),P3=bootParts();
-  function X(f){return(cx+f*mu).toFixed(1)} function Y(v){return(m+v*mu).toFixed(1)}
+function drawBoot(g,geo,out){
+  var mu=U/10,m=H/2,cx=geo.x0+geo.L*geo.waistAt,b=el("g",null,g),P3=bootParts();out=out||1;
+  // outline drawn at 354 mm, scaled to the 310 mm sole
+  function X(f){return(cx+f*.878*mu).toFixed(1)} function Y(v){return(m+v*mu).toFixed(1)}
   function mir(p){return p.concat(p.slice().reverse().map(function(q){return[q[0],-q[1]]}))}
   function poly(pts,fill,extra){var a={points:pts.map(function(q){return X(q[0])+","+Y(q[1])}).join(" "),fill:fill};for(var k in extra||{})a[k]=extra[k];return el("polygon",a,b)}
   function R(f1,f2,s1,s2,r,fill,extra){var a={x:X(Math.min(f1,f2)),y:Y(Math.min(s1,s2)),width:(Math.abs(f2-f1)*mu).toFixed(1),height:(Math.abs(s2-s1)*mu).toFixed(1),rx:(r*mu).toFixed(1),fill:fill};for(var k in extra||{})a[k]=extra[k];return el("rect",a,b)}
@@ -948,7 +952,7 @@ function drawBoot(g,geo){
   R(-150,-92,-42,42,12,P3.sh,{stroke:"rgba(0,0,0,.4)","stroke-width":1.4*mu});                              // cuff
   ell(-124,0,22,30,P3.liner);ell(-124,0,15,23,"#2b3036");                                                   // liner opening
   R(-164,-142,-36,36,9,P3.bk,{stroke:P3.line,"stroke-width":.9*mu});                                        // power strap
-  [[-96,1],[-30,-1],[34,1]].forEach(function(q){var f=q[0],sd=q[1];
+  [-96,-30,34].forEach(function(f){var sd=out;
     R(f-7,f+7,sd*18,sd*44,3,P3.bk);                                                                          // ladder on the side
     poly([[f-4,sd*16],[f+22,sd*2],[f+30,sd*10],[f+4,sd*24]],P3.metal,{stroke:"rgba(0,0,0,.35)","stroke-width":.7*mu,"stroke-linejoin":"round"})}); // lever across
   R(96,140,-14,14,5,P3.line,{opacity:.55});                                                                  // toe lug
@@ -987,7 +991,7 @@ function skiHeights(){
   return function(s){var y=0;
     if(s<sa)y=rise[0]*Math.pow((sa-s)/sa,2.2);else if(s>st)y=rise[1]*Math.pow((s-st)/(1-st),2.2);else y=3.5*Math.sin(Math.PI*(s-sa)/(st-sa));
     return{base:y,top:y+4+8*Math.pow(Math.sin(Math.PI*Math.min(1,Math.max(0,s))),.6)}}}
-function skiMeshes(geo,canvas,baseCanvas){
+function skiMeshes(geo,canvas,baseCanvas,outward){
   var T=THREE,N=geo.N,Lmm=geo.L*MM,hf=skiHeights(),g=new T.Group(),tp=[],tuv=[],ti=[],bp=[],bi=[],up=[],uuv=[],ui=[];
   for(var i=0;i<=N;i++){var s=i/N,x=-Lmm/2+Lmm*s,w=Math.max(geo.w[i]*MM,.01),h=hf(s),v=w/(H*MM);
     tp.push(x,h.top,-w, x,h.top,w);tuv.push(s,.5+v, s,.5-v);
@@ -1008,11 +1012,12 @@ function skiMeshes(geo,canvas,baseCanvas){
   var sg=new T.BufferGeometry();sg.setAttribute("position",new T.Float32BufferAttribute(bp,3));sg.setIndex(bi);sg.computeVertexNormals();
   var side=new T.Mesh(sg,new T.MeshStandardMaterial({color:state.sidewall,roughness:.6,side:T.DoubleSide}));side.castShadow=true;g.add(side);
   if(state.binding!=="none"){var cx=-Lmm/2+Lmm*geo.waistAt;g.add(bindings3D(cx+155,cx-155,hf(geo.waistAt).top,geo.waistHalf*MM+3))}
-  if(state.boot){var cb=-Lmm/2+Lmm*geo.waistAt;g.add(boot3D(cb,hf(geo.waistAt).top+(state.binding==="none"?4:state.binding==="std"?14:17)))}
+  if(state.boot){var cb=-Lmm/2+Lmm*geo.waistAt;g.add(boot3D(cb,outward,hf(geo.waistAt).top+(state.binding==="none"?4:state.binding==="std"?14:17)))}
   return g}
 function bindings3D(Tx,Hx,y0,edge){
   var T=THREE,g=new T.Group(),mats={};
-  function M(c,metal){var k=c+(metal?"m":"");return mats[k]||(mats[k]=new T.MeshStandardMaterial({color:c,roughness:metal?.26:.4,metalness:metal?.9:.45}))}
+  function M(c,metal){if(c===ac&&metalAc)metal=true;var k=c+(metal?"m":"");
+    return mats[k]||(mats[k]=new T.MeshStandardMaterial({color:c,roughness:metal?(c===ac?.3:.2):.42,metalness:metal?(V3.env?1:.9):0,envMap:V3.env||null,envMapIntensity:metal?1:.4}))}
   function add(m){m.castShadow=true;g.add(m);return m}
   function mir(p){return p.concat(p.slice().reverse().map(function(q){return[q[0],-q[1]]}))}
   function P(ox,pts,z0,h,c,bev){bev=bev==null?2.5:bev;var sh=new T.Shape();pts.forEach(function(q,i){i?sh.lineTo(ox+q[0],q[1]):sh.moveTo(ox+q[0],q[1])});
@@ -1029,13 +1034,14 @@ function bindings3D(Tx,Hx,y0,edge){
     ge.rotateX(-Math.PI/2);var m=new T.Mesh(ge,M(c));m.position.y=z0+bev;m.castShadow=true;t.add(m);return m}
   function tB(t,f1,f2,s1,s2,z0,h,c,metal){var m=new T.Mesh(new T.BoxGeometry(Math.abs(f2-f1),h,Math.abs(s2-s1)),M(c,metal));
     m.position.set((f1+f2)/2,z0+h/2,(s1+s2)/2);m.castShadow=true;t.add(m);return m}
-  var ac=state.bindFade?"#9A2AA0":state.bindColor,c3=hex2rgb(state.bindColor),lum=c3[0]*.3+c3[1]*.59+c3[2]*.11;
+  var ac=state.bindFade?"#9A2AA0":state.bindColor,metalAc=isMetal(state.bindColor),c3=hex2rgb(state.bindColor),lum=c3[0]*.3+c3[1]*.59+c3[2]*.11;
   var trim=state.bindFade?"#F2D21B":(lum>205?"#D5232B":"#0e1012"),DK="#1b1e22",CH="#c9d0d6";
   if(state.binding==="std"){
     B(Tx,-36,-9,-28,28,0,7,DK);B(Tx,-34,-11,-26,26,0,8,CH,true);
+    [-29,-22.5,-16].forEach(function(f){B(Tx,f-.9,f+.9,-19,19,8,1.4,CH,true)});                  // raised ridges on the AFD plate
     P(Tx,mir([[8,0],[3,15],[-12,22],[-17,30],[-10,38],[14,39],[34,35],[45,25],[52,23],[59,15],[59,6],[50,4]]),4,44,ac,3);
     P(Tx,mir([[19,0],[19,20],[41,16],[41,0]]),47.5,1.2,"#dfe5ea",0);B(Tx,27,33,-9,9,48.5,.8,DK);
-    [-1,1].forEach(function(sd){bar(Hx,14,sd*24,14,sd*(edge+4),2.6,6,CH,true);B(Hx,-26,10,sd*edge,sd*(edge+8),-18,26,DK)});
+    [-1,1].forEach(function(sd){bar(Hx,14,sd*24,14,sd*(edge+4),2.6,6,CH,true);B(Hx,-26,10,sd*edge,sd*(edge+8),state.boot?-2:-18,state.boot?12:26,DK)});
     B(Hx,8,54,-27,27,0,9,DK);B(Hx,14,48,-19,19,9,1,"#2c3136");
     P(Hx,mir([[0,0],[6,9],[6,17],[-3,31],[-11,39],[-40,39],[-52,31],[-52,0]]),4,50,ac,3);     // front stays flat
     var at=tail(-52,-0.62);                                                                    // rear + lever hinge up
@@ -1050,7 +1056,7 @@ function bindings3D(Tx,Hx,y0,edge){
       P(Tx,[[58,sd*24.5],[86,sd*23],[84,sd*18.5],[60,sd*19.5]],44.6,1,trim,0)});
     C(Tx,63,0,23,15.5,44.6,1.2,"#14171b");C(Tx,66,0,11,6.5,45.6,.8,"#eef0f1");B(Tx,58,74,-.9,.9,46.2,.6,DK);
     [-1,1].forEach(function(sd){
-      bar(Hx,22,sd*36,-24,sd*(edge+9),6,9,DK);B(Hx,-42,-22,sd*(edge+5),sd*(edge+13),-20,32,DK);
+      bar(Hx,22,sd*36,-24,sd*(edge+9),6,9,DK);B(Hx,-42,-22,sd*(edge+5),sd*(edge+13),state.boot?-2:-20,state.boot?14:32,DK);
       bar(Hx,40,sd*39,-16,sd*34,4.5,24,CH,true)});
     C(Hx,33,0,41,41,0,8,"#23272b");C(Hx,40,0,39,39,0,11,"#aab2b9",true);
     B(Hx,30,55,-30,30,11,5,"#2a2d31");B(Hx,58,70,-11,11,11,4,"#3a3f45");
@@ -1101,39 +1107,42 @@ function loftY(rows,ya,yb,steps,radius){        // rows: [y, halfWidth(z), fBack
     var a=secs[i][k],b=secs[i][(k+1)%per],c=secs[i+1][k],d=secs[i+1][(k+1)%per];idx.push(a,c,b, b,c,d)}
   [0,steps].forEach(function(si,end){var row=secs[si];for(var k=1;k<per-1;k++){if(end)idx.push(row[0],row[k],row[k+1]);else idx.push(row[0],row[k+1],row[k])}});
   var g=new T.BufferGeometry();g.setAttribute("position",new T.Float32BufferAttribute(pos,3));g.setIndex(idx);g.computeVertexNormals();return g}
-function boot3D(cx,y0){
-  var T=THREE,g=new T.Group(),P3=bootParts();
-  function M(c,r,metal){return new T.MeshStandardMaterial({color:c,roughness:r==null?.42:r,metalness:metal||.04,side:T.DoubleSide})}
+function boot3D(cx,side,y0){
+  var T=THREE,g=new T.Group(),P3=bootParts();side=side||1;                 // side: which way is the outside of this foot
+  function M(c,r,metal){return new T.MeshStandardMaterial({color:c,roughness:r==null?.42:r,metalness:metal?(V3.env?1:.85):0,envMap:V3.env||null,envMapIntensity:metal?1:.35,side:T.DoubleSide})}
   function put(geo,mat){var m=new T.Mesh(geo,mat);m.position.x=cx;m.position.y=y0;m.castShadow=true;g.add(m);return m}
-  /* foot, lofted front to back: f, half width, bottom, top */
-  var SOLE =[[188,34,0,15],[150,44,0,16],[60,56,0,17],[-40,58,0,17],[-130,54,0,17],[-186,40,0,15]];
-  var SHELL=[[170,30,12,42],[140,42,11,58],[80,50,10,78],[10,53,10,94],[-60,53,10,104],[-120,50,11,104],[-158,42,14,94]];
-  /* cuff and tongue, lofted bottom to top: y, half width, back edge, front edge.
-     The front edge creeps forward as it rises, which is the boot's forward lean. */
-  var CUFF  =[[212,42,-126,-52],[188,44,-136,-58],[150,47,-146,-72],[112,50,-151,-86],[92,51,-152,-94]];
-  var TONGUE=[[190,30,-50,-16],[160,31,-34,4],[128,32,-14,26],[100,32,8,50],[78,30,30,74]];
-  put(loft(SOLE,190,-188,26,7),M(P3.sole,.6));
-  put(loft(SHELL,172,-160,30,10),M(P3.sh,.38));
-  put(loftY(CUFF,90,214,18,12),M(P3.sh,.44));
-  put(loftY(TONGUE,76,192,16,9),M(mix(P3.sh,P3.dark?"#ffffff":"#000000",.09),.4));
-  var liner=new T.Mesh(new T.CylinderGeometry(1,1,140,28),M(P3.liner,.85));       // solid liner filling the boot so it isn't hollow
-  liner.scale.set(34,1,40);liner.position.set(cx-104,y0+172,0);liner.rotation.z=.05;g.add(liner);
-  var pad=new T.Mesh(new T.SphereGeometry(1,22,14),M(P3.liner,.8));                // rounded foam top at the opening
-  pad.scale.set(35,11,41);pad.position.set(cx-106,y0+240,0);g.add(pad);
-  function buckle(f,y,sd,len,w){
-    var lad=new T.Mesh(new T.BoxGeometry(17,10,24),M(P3.bk,.5));
-    lad.position.set(cx+f,y0+y,sd*(w-3));lad.castShadow=true;g.add(lad);
-    for(var i=0;i<4;i++){var th=new T.Mesh(new T.BoxGeometry(3,5,20),M(P3.bk,.5));th.position.set(cx+f-6.5+i*4.3,y0+y+7,sd*(w-3));g.add(th)}
-    var lev=new T.Mesh(new T.BoxGeometry(len,6,11),M(P3.metal,.22,.85));
-    lev.position.set(cx+f+len*.44,y0+y+6,sd*(w-10));lev.rotation.y=-sd*.34;lev.castShadow=true;g.add(lev);
-    var hk=new T.Mesh(new T.BoxGeometry(10,6,9),M(P3.metal,.22,.85));hk.position.set(cx+f+len*.88,y0+y+4,sd*(w-20));g.add(hk)}
-  buckle(-126,178,1,46,46);                                   // upper cuff
-  buckle(-96,124,-1,44,50);                                   // lower cuff
-  buckle(6,84,1,48,53);                                       // instep
-  buckle(104,52,-1,40,47);                                    // forefoot
-  put(loftY([[240,43,-128,-48],[222,44,-130,-52]],220,242,3,7),M(P3.bk,.6));   // power strap
-  [[166,54],[-166,52]].forEach(function(q){var lug=new T.Mesh(new T.BoxGeometry(32,9,q[1]),M(P3.dark?"#4a4f55":"#2a2e33",.75));
-    lug.position.set(cx+q[0],y0+4,0);g.add(lug)});
+  /* Proportions of a real 26.5 boot: the sole is 310 mm, exactly the toe-to-heel span the
+     binding is set for, and the boot stands about 335 mm tall, taller than it is long.
+     Foot, lofted front to back: f, half width, bottom, top. */
+  var SOLE =[[156,30,0,22],[128,46,0,24],[60,52,0,24],[-40,50,0,24],[-120,44,0,24],[-156,34,0,22]];
+  var SHELL=[[146,28,18,50],[118,42,18,76],[80,50,18,104],[40,52,18,138],[0,52,18,164],[-50,51,18,172],[-105,48,20,172],[-140,40,22,160]];
+  /* cuff and tongue, lofted bottom to top: y, half width, back edge, front edge. Both follow
+     one shin line leaning about 14 degrees forward: the cuff wraps the back three quarters of
+     it and the tongue closes the front, flaring onto the instep at the bottom. */
+  var CUFF  =[[322,44,-103,-16],[285,46,-112,-24],[225,49,-126,-36],[165,51,-140,-46],[120,52,-148,-54]];
+  var TONGUE=[[336,32,-30,16],[292,34,-38,6],[232,35,-50,-6],[172,34,-62,4],[130,30,-60,40]];
+  put(loft(SOLE,156,-156,26,6),M(P3.sole,.7));
+  put(loft(SHELL,148,-142,30,12),M(P3.sh,.36));
+  put(loftY(CUFF,118,324,20,14),M(P3.sh,.4));
+  put(loftY(TONGUE,130,338,18,10),M(mix(P3.sh,P3.dark?"#ffffff":"#000000",.09),.38));
+  var liner=new T.Mesh(new T.CylinderGeometry(1,1,210,28),M(P3.liner,.85));       // solid liner filling the boot so it isn't hollow
+  liner.scale.set(40,1,42);liner.position.set(cx-72,y0+228,0);liner.rotation.z=-.2;g.add(liner);
+  var pad=new T.Mesh(new T.SphereGeometry(1,22,14),M(P3.liner,.8));                // rounded foam collar at the opening
+  pad.scale.set(44,12,44);pad.position.set(cx-50,y0+334,0);pad.rotation.z=-.2;g.add(pad);
+  function buckle(f,y,len,w){var sd=side;                                          // every lever on the outside of the foot, as on a real boot
+    var lad=new T.Mesh(new T.BoxGeometry(24,13,16),M(P3.bk,.5));                  // ladder base on the shell
+    lad.position.set(cx+f,y0+y,sd*(w+4));lad.castShadow=true;g.add(lad);
+    for(var i=0;i<5;i++){var th=new T.Mesh(new T.BoxGeometry(3,15,6),M(P3.bk,.5));th.position.set(cx+f-9+i*4.5,y0+y,sd*(w+13));g.add(th)}   // ladder teeth
+    var lev=new T.Mesh(new T.BoxGeometry(len,9,7),M(P3.metal,.2,true));            // lever lying along the shell
+    lev.position.set(cx+f+len*.5+10,y0+y+2,sd*(w+8));lev.rotation.z=.12;lev.castShadow=true;g.add(lev);
+    var bail=new T.Mesh(new T.BoxGeometry(14,4,4),M(P3.metal,.2,true));bail.position.set(cx+f+6,y0+y+1,sd*(w+14));g.add(bail)}
+  buckle(-86,282,44,46);                                      // upper cuff
+  buckle(-104,214,44,49);                                     // lower cuff
+  buckle(-6,134,50,52);                                       // instep, across the flex zone
+  buckle(78,92,42,50);                                        // forefoot
+  put(loftY([[324,45,-102,-12],[298,46,-110,-22]],298,324,3,7),M(P3.bk,.6));   // power strap round the top of the cuff
+  [[146,46],[-146,40]].forEach(function(q){var lug=new T.Mesh(new T.BoxGeometry(20,14,q[1]),M(P3.dark?"#4a4f55":"#2a2e33",.75));   // toe and heel lugs the binding clamps
+    lug.position.set(cx+q[0],y0+9,0);g.add(lug)});
   return g}
 function disposeTree(o){o.traverse(function(n){if(n.geometry)n.geometry.dispose();if(n.material){if(n.material.map)n.material.map.dispose();n.material.dispose()}})}
 function update3D(){
@@ -1142,7 +1151,7 @@ function update3D(){
     if(my!==V3.token)return;
     while(V3.pair.children.length){var o=V3.pair.children[0];V3.pair.remove(o);disposeTree(o)}
     var gap=Math.max.apply(null,geo.w)*MM+22;
-    [0,1].forEach(function(k){var ski=skiMeshes(geo,cv[k],cv[2+k]);ski.position.z=(k?1:-1)*gap;V3.pair.add(ski)});
+    [0,1].forEach(function(k){var ski=skiMeshes(geo,cv[k],cv[2+k],k?1:-1);ski.position.z=(k?1:-1)*gap;V3.pair.add(ski)});
     V3.len=geo.L*MM;if(V3.lenShown==null)V3.lenShown=V3.len;
     if(V3.settlePending){V3.settlePending=false;V3.settle={t0:performance.now()};var cvs=V3.renderer.domElement;if(cvs.animate)cvs.animate([{opacity:.45},{opacity:1}],{duration:520,easing:"cubic-bezier(.2,.8,.2,1)"})}
     $("stage3d").classList.add("ready");place();draw3D()})}
@@ -1171,6 +1180,12 @@ function start3D(){
     var T=THREE,r=new T.WebGLRenderer({antialias:true,alpha:true});
     r.setPixelRatio(Math.min(window.devicePixelRatio||1,2));r.outputEncoding=T.sRGBEncoding;r.shadowMap.enabled=true;r.shadowMap.type=T.PCFSoftShadowMap;
     box.appendChild(r.domElement);V3.renderer=r;V3.texW=Math.min(4096,r.capabilities.maxTextureSize);
+    try{                                                   // a soft studio sky so chrome, gold and buckles have something to reflect
+      var pm=new T.PMREMGenerator(r),es=new T.Scene(),sg=new T.SphereGeometry(100,32,16),pa=sg.attributes.position,col=[],top=new T.Color("#ffffff"),hor=new T.Color("#dde5ee"),bot=new T.Color("#7f8894");
+      for(var i=0;i<pa.count;i++){var yy=pa.getY(i)/100,cc=(yy>0?top.clone():bot.clone()).lerp(hor,1-Math.min(1,Math.abs(yy)*1.6));col.push(cc.r,cc.g,cc.b)}
+      sg.setAttribute("color",new T.Float32BufferAttribute(col,3));es.add(new T.Mesh(sg,new T.MeshBasicMaterial({vertexColors:true,side:T.BackSide})));
+      [[0,85,20,70,40],[75,35,55,40,55],[-70,25,-60,35,45]].forEach(function(q){var pl=new T.Mesh(new T.PlaneGeometry(q[3],q[4]),new T.MeshBasicMaterial({color:0xffffff,side:T.DoubleSide}));pl.position.set(q[0],q[1],q[2]);pl.lookAt(0,0,0);es.add(pl)});
+      V3.env=pm.fromScene(es,.02).texture;pm.dispose()}catch(e){V3.env=null}
     V3.scene=new T.Scene();V3.camera=new T.PerspectiveCamera(30,2,10,20000);V3.pair=new T.Group();V3.scene.add(V3.pair);
     V3.scene.add(new T.HemisphereLight(0xffffff,0x8a97a6,.62));
     var sun=new T.DirectionalLight(0xffffff,.55);sun.position.set(-500,1400,700);sun.castShadow=true;sun.shadow.mapSize.set(2048,2048);
