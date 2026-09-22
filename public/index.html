@@ -11,13 +11,14 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <style>
 :root{
-  --snow:#EAF2FA; --paper:#FFFFFF; --ink:#0F2A43; --ink-2:#2A4661; --muted:#4A6785; --line:#D2E2EF; --line-soft:rgba(15,42,67,.08);
+  --snow:#D9E4EE; --paper:#F5F8FB; --ink:#0E2740; --ink-2:#2A4661; --muted:#48647F; --line:#C4D3E1; --line-soft:rgba(14,39,64,.09);
   --pink:#1D6FE0; --pink-hover:#1760C7; --pink-ink:#FFFFFF; --accent-soft:rgba(29,111,224,.10); --accent-ring:rgba(29,111,224,.28);
   --spruce:#0E7C86; --err:#C2352B; --err-soft:rgba(194,53,43,.08);
-  --cord:rgba(15,42,67,.05); --stage:#EAF2FA; --field:#F3F7FB; --track:rgba(15,42,67,.06);
-  --stage-wash:rgba(240,246,252,.62); --hero-shade:8,26,44;
+  --cord:rgba(14,39,64,.06); --stage:#D9E4EE; --field:#E9F0F6; --track:rgba(14,39,64,.07); --totals:#E3EBF3;
+  --page-grad:linear-gradient(180deg,#D3DFEB 0%,#E4ECF3 45%,#D6E1EC 100%);
+  --stage-wash:rgba(225,234,243,.55); --hero-shade:8,26,44;
   --sh-1:0 1px 2px rgba(15,42,67,.06);
-  --sh-2:0 1px 2px rgba(15,42,67,.04),0 10px 30px -12px rgba(15,42,67,.16);
+  --sh-2:0 1px 2px rgba(14,39,64,.05),0 18px 40px -20px rgba(14,39,64,.3);
   --sh-3:0 2px 6px rgba(15,42,67,.06),0 30px 70px -24px rgba(8,26,44,.38);
   --sh-btn:0 1px 2px rgba(15,42,67,.14);
   --ease:cubic-bezier(.2,.8,.2,1); --ease-in-out:cubic-bezier(.65,0,.35,1);
@@ -31,7 +32,7 @@
     --snow:#0A1520; --paper:#0F1E2E; --ink:#EAF2FA; --ink-2:#C7D8E8; --muted:#93B0CB; --line:#22384C; --line-soft:rgba(255,255,255,.07);
     --pink:#5B9DFF; --pink-hover:#7BB0FF; --pink-ink:#08131F; --accent-soft:rgba(91,157,255,.14); --accent-ring:rgba(91,157,255,.35);
     --spruce:#3FC7CE; --err:#FF8A7E; --err-soft:rgba(255,138,126,.10);
-    --cord:rgba(255,255,255,.04); --stage:#0A1520; --field:#0B1826; --track:rgba(255,255,255,.06);
+    --cord:rgba(255,255,255,.04); --stage:#0A1520; --field:#0B1826; --track:rgba(255,255,255,.06); --totals:#0B1826; --page-grad:linear-gradient(transparent,transparent);
     --stage-wash:rgba(8,18,28,.6); --hero-shade:4,12,20;
     --sh-1:0 1px 2px rgba(0,0,0,.3);
     --sh-2:0 1px 0 rgba(255,255,255,.04) inset,0 12px 32px -14px rgba(0,0,0,.6);
@@ -44,7 +45,7 @@
   --snow:#0A1520; --paper:#0F1E2E; --ink:#EAF2FA; --ink-2:#C7D8E8; --muted:#93B0CB; --line:#22384C; --line-soft:rgba(255,255,255,.07);
   --pink:#5B9DFF; --pink-hover:#7BB0FF; --pink-ink:#08131F; --accent-soft:rgba(91,157,255,.14); --accent-ring:rgba(91,157,255,.35);
   --spruce:#3FC7CE; --err:#FF8A7E; --err-soft:rgba(255,138,126,.10);
-  --cord:rgba(255,255,255,.04); --stage:#0A1520; --field:#0B1826; --track:rgba(255,255,255,.06);
+  --cord:rgba(255,255,255,.04); --stage:#0A1520; --field:#0B1826; --track:rgba(255,255,255,.06); --totals:#0B1826; --page-grad:linear-gradient(transparent,transparent);
   --stage-wash:rgba(8,18,28,.6); --hero-shade:4,12,20;
   --sh-1:0 1px 2px rgba(0,0,0,.3);
   --sh-2:0 1px 0 rgba(255,255,255,.04) inset,0 12px 32px -14px rgba(0,0,0,.6);
@@ -58,8 +59,8 @@ html{-webkit-text-size-adjust:100%;scroll-behavior:smooth}
 body{margin:0;color:var(--ink);font-family:var(--body);font-size:1rem;line-height:1.55;
   -webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale;text-rendering:optimizeLegibility;
   background-color:var(--snow);
-  background-image:radial-gradient(var(--cord) 1px, transparent 1px);
-  background-size:16px 16px}
+  background-image:var(--page-grad),radial-gradient(var(--cord) 1px, transparent 1px);
+  background-size:auto,16px 16px;background-attachment:fixed,scroll}
 h1,h2,h3{font-family:var(--display);font-weight:700;line-height:1.02;margin:0;letter-spacing:.005em}
 button,input,select,textarea{font:inherit;color:inherit}
 button{-webkit-tap-highlight-color:transparent}
@@ -280,7 +281,7 @@ input[type=file]:active::file-selector-button{transform:scale(.97)}
 
 /* ---------- price card ---------- */
 .totals{grid-column:1/-1;display:grid;grid-template-columns:1fr;gap:1.25rem;align-items:center;
-  margin:0 calc(var(--pad) * -1);padding:clamp(1.35rem,2.6vw,1.75rem) var(--pad);background:var(--field);border-top:1px solid var(--line-soft)}
+  margin:0 calc(var(--pad) * -1);padding:clamp(1.35rem,2.6vw,1.75rem) var(--pad);background:var(--totals);border-top:1px solid var(--line-soft)}
 @media (min-width:48rem){.totals{grid-template-columns:auto 1fr auto;gap:2.5rem}}
 .price-lab{font-size:.88rem;font-weight:500;color:var(--muted);margin:0 0 .2rem}
 .price{font-family:var(--display);font-weight:700;font-size:clamp(2.6rem,5vw,3.2rem);line-height:.95;color:var(--ink);font-variant-numeric:tabular-nums;letter-spacing:-.01em}
