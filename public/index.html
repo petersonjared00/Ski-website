@@ -148,16 +148,16 @@ label:has(.val){display:flex;align-items:baseline;justify-content:space-between;
 .val{font-family:var(--display);font-weight:600;font-size:1.2rem;color:var(--pink);font-variant-numeric:tabular-nums;letter-spacing:.01em}
 
 /* signature design cards */
-.sig-list{display:grid;gap:.6rem}
-.sig{display:grid;grid-template-columns:1fr;gap:.55rem;width:100%;padding:.6rem;border:1px solid var(--line);border-radius:14px;background:var(--paper);cursor:pointer;text-align:left;color:var(--ink);
+.sig-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.6rem}
+.sig{display:grid;grid-template-columns:1fr;align-content:start;gap:.5rem;width:100%;padding:.5rem;border:1px solid var(--line);border-radius:14px;background:var(--paper);cursor:pointer;text-align:left;color:var(--ink);
   transition:border-color .2s var(--ease),box-shadow .2s var(--ease),background-color .2s var(--ease),transform .15s var(--ease)}
 .sig:hover{border-color:color-mix(in srgb,var(--pink) 55%,var(--line))}
 .sig:active{transform:scale(.99);transition-duration:.08s}
 .sig[aria-pressed=true]{border-color:var(--pink);box-shadow:0 0 0 3px var(--accent-ring);background:var(--accent-soft)}
-.sig img{display:block;width:100%;height:auto;aspect-ratio:1810/326;object-fit:cover;border-radius:8px;background:#0c0a09}
-.sig-meta{display:flex;justify-content:space-between;align-items:baseline;gap:.75rem;padding:0 .15rem}
-.sig-meta b{font-family:var(--display);font-weight:600;font-size:1.15rem;letter-spacing:.01em}
-.sig-meta span{font-size:.82rem;color:var(--muted)}
+.sig img{display:block;width:100%;height:auto;aspect-ratio:11/2;object-fit:cover;border-radius:6px;background:#0c0a09}
+.sig-meta{display:flex;flex-direction:column;gap:.05rem;padding:0 .15rem .1rem;line-height:1.25}
+.sig-meta b{font-family:var(--display);font-weight:600;font-size:1.05rem;letter-spacing:.01em}
+.sig-meta span{font-size:.78rem;color:var(--muted)}
 
 /* terrain photo that follows the chosen profile */
 .terrain{position:relative;margin:0 0 .75rem;aspect-ratio:16/9;border-radius:14px;overflow:hidden;background:var(--track)}
@@ -1322,9 +1322,18 @@ $("send").addEventListener("click",async function(){
 
 /* ---------- signature designs: finished topsheets from the shop ---------- */
 var SIGNATURE=[
-  {id:"signature:edollo-91",name:"Edollo \u201991",by:"Caravaggio\u2019s Entombment, split across the pair",
+  {id:"signature:edollo-91",name:"Edollo \u201991",by:"Caravaggio\u2019s Entombment",
    image:"img/designs/edollo-91-pair.jpg",single:"img/designs/edollo-91-single.jpg",
-   note:"Signature design. Caravaggio\u2019s Entombment runs across both skis; pick Coordinated pair to see each ski\u2019s half."}
+   note:"Signature design. Caravaggio\u2019s Entombment, split across the pair."},
+  {id:"signature:arv-106",name:"ARV 106",by:"Aurora over a night city",
+   image:"img/designs/arv-106-pair.jpg",single:"img/designs/arv-106-single.jpg",
+   note:"Signature design. A green aurora and crescent moon over a night city."},
+  {id:"signature:whitewalker-106",name:"Whitewalker 106",by:"White marble",
+   image:"img/designs/whitewalker-106-pair.jpg",single:"img/designs/whitewalker-106-single.jpg",
+   note:"Signature design. White marble with a painted night-sky patch and a skier sketch."},
+  {id:"signature:whitewalker-red",name:"Whitewalker Red",by:"Red smoke on black",
+   image:"img/designs/whitewalker-red-pair.jpg",single:"img/designs/whitewalker-red-single.jpg",
+   note:"Signature design. Red smoke on black."}
 ];
 function syncSignature(){var a=state.tops[0];
   Array.prototype.forEach.call(document.querySelectorAll(".sig"),function(b){b.setAttribute("aria-pressed",String(!!a&&a.id===b.dataset.id))});
