@@ -147,6 +147,18 @@ label:has(.val){display:flex;align-items:baseline;justify-content:space-between;
 .row{display:flex;gap:.6rem;flex-wrap:wrap;align-items:center}
 .val{font-family:var(--display);font-weight:600;font-size:1.2rem;color:var(--pink);font-variant-numeric:tabular-nums;letter-spacing:.01em}
 
+/* signature design cards */
+.sig-list{display:grid;gap:.6rem}
+.sig{display:grid;grid-template-columns:1fr;gap:.55rem;width:100%;padding:.6rem;border:1px solid var(--line);border-radius:14px;background:var(--paper);cursor:pointer;text-align:left;color:var(--ink);
+  transition:border-color .2s var(--ease),box-shadow .2s var(--ease),background-color .2s var(--ease),transform .15s var(--ease)}
+.sig:hover{border-color:color-mix(in srgb,var(--pink) 55%,var(--line))}
+.sig:active{transform:scale(.99);transition-duration:.08s}
+.sig[aria-pressed=true]{border-color:var(--pink);box-shadow:0 0 0 3px var(--accent-ring);background:var(--accent-soft)}
+.sig img{display:block;width:100%;height:auto;aspect-ratio:1810/326;object-fit:cover;border-radius:8px;background:#0c0a09}
+.sig-meta{display:flex;justify-content:space-between;align-items:baseline;gap:.75rem;padding:0 .15rem}
+.sig-meta b{font-family:var(--display);font-weight:600;font-size:1.15rem;letter-spacing:.01em}
+.sig-meta span{font-size:.82rem;color:var(--muted)}
+
 /* terrain photo that follows the chosen profile */
 .terrain{position:relative;margin:0 0 .75rem;aspect-ratio:16/9;border-radius:14px;overflow:hidden;background:var(--track)}
 .terrain img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:0;transform:scale(1.04);transition:opacity .6s var(--ease),transform 1.2s var(--ease)}
@@ -439,6 +451,10 @@ dialog h2{font-size:2rem;color:var(--ink)}
 <main>
   <section class="block" aria-labelledby="h-art">
     <h2 id="h-art">Artwork</h2>
+    <div class="field" id="sigField">
+      <span class="lab">Signature designs</span>
+      <div class="sig-list" id="sigList"></div>
+    </div>
     <div class="field">
       <span class="lab">Designing</span>
       <div class="seg" id="surface" role="group" aria-label="Which side">
@@ -776,7 +792,7 @@ function drawSki(stage,y,geo,o){
   el("rect",{x:0,y:0,width:1800,height:H,fill:"#22303c"},clipped);
   var artWrap=el("g",flip?{transform:"translate(0,"+H+") scale(1,-1)"}:null,clipped);
   if(art.image){
-    el("image",{x:geo.x0.toFixed(1),y:ay,width:geo.L.toFixed(1),height:ah,preserveAspectRatio:"xMidYMid slice",href:art.image},artWrap);
+    el("image",{x:geo.x0.toFixed(1),y:ay,width:geo.L.toFixed(1),height:ah,preserveAspectRatio:"xMidYMid slice",href:artSrc(art,o.spread!=null)},artWrap);
   }else{
     var inner=el("svg",{x:geo.x0.toFixed(1),y:ay,width:geo.L.toFixed(1),height:ah,viewBox:art.viewBox,preserveAspectRatio:"xMidYMid slice",overflow:"hidden"},artWrap);
     art.nodes.forEach(function(n){inner.appendChild(n.cloneNode(true))});
@@ -876,7 +892,7 @@ function render(){
   if(V3.on)update3D();
   $("designName").textContent=(state.surface==="base"?"Base: ":"")+A.name;
   $("designNote").textContent=cur().note;
-  $("refine").hidden=!cur().ai;
+  $("refine").hidden=!cur().ai;syncSignature();
   $("lenVal").textContent=state.len+" cm";
   $("waistVal").textContent=state.waist+" mm";
   var dm=dims();$("dims").textContent="Tip "+dm[0]+" / waist "+dm[1]+" / tail "+dm[2]+" mm."+(state.ref?" Based on the published widths of the "+state.ref[0]+(state.ref[4]?" ("+state.ref[4]+" cm)":"")+(state.waist!==state.ref[2]?", shifted to your waist width":"")+". Yours is our own build, not that ski.":"");
@@ -925,7 +941,7 @@ async function drawWithAI(change){
 /* ---------- build sheet ---------- */
 function summaryRows(){
   var coreName={poplar:"Poplar and ash",maple:"Maple",carbon:"Paulownia and carbon"}[state.core];
-  function d(a){return a?a.name+(a.ai?" (custom drawn)":" (shop pattern)"):"Shop pattern"}
+  function d(a){return a?a.name+(a.ai?" (custom drawn)":a.fixed?" (signature design)":" (shop pattern)"):"Shop pattern"}
   return[["Topsheet",d(state.tops[0])],["Topsheet brief",state.briefs.top||"None"],
     ["Base",state.bases[0]?d(state.bases[0]):"Plain (no printed base)"],["Base brief",state.bases[0]?(state.briefs.base||"None"):"None"],
     ["Profile",PROFILES[state.profile].label],["Shape",dims().join(" / ")+" mm"+(state.ref?" (reference: "+state.ref[0]+")":"")],["Length",state.len+" cm"],["Waist",state.waist+" mm"],
@@ -968,10 +984,13 @@ var V3={on:false,token:0,theta:-.55,phi:1.02,zoom:1,anim:null};
 var MM=10/U;                                                    // millimetres per stage unit
 function coverDraw(ctx,img,dx,dy,dw,dh){var iw=img.naturalWidth||img.width,ih=img.naturalHeight||img.height,sc=Math.max(dw/iw,dh/ih),sw=dw/sc,sh=dh/sc;
   ctx.drawImage(img,(iw-sw)/2,(ih-sh)/2,sw,sh,dx,dy,dw,dh)}
-function artImage(art,w,h){
-  var key=w+"x"+h;if(art._ras&&art._ras.key===key)return art._ras.p;
+/* a signature design carries one image of both skis (for a coordinated pair) and one of the first
+   ski alone (for matching or mirrored); drawn art and AI art have a single image */
+function artSrc(art,spread){return!spread&&art.single?art.single:art.image}
+function artImage(art,w,h,spread){
+  var key=w+"x"+h+(art.single&&!spread?"s":"");if(art._ras&&art._ras.key===key)return art._ras.p;
   var p=new Promise(function(ok,no){var im=new Image();im.onload=function(){ok(im)};im.onerror=function(){no(new Error("art"))};
-    if(art.image)im.src=art.image;
+    if(art.image)im.src=artSrc(art,spread);
     else{var xs=new XMLSerializer(),inner=art.nodes.map(function(n){return xs.serializeToString(n)}).join("");
       im.src="data:image/svg+xml;charset=utf-8,"+encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="'+w+'" height="'+h+'" viewBox="'+art.viewBox+'" preserveAspectRatio="xMidYMid slice">'+inner+"</svg>")}});
   art._ras={key:key,p:p};return p}
@@ -979,7 +998,7 @@ function skiTexture(idx,geo,sf){
   var W=V3.texW,Hc=Math.round(W*H/geo.L),spread=state.pair==="spread",flip=idx===1&&state.pair==="mirror";
   var art=arts(sf)[0],dh=spread?2*Hc:Hc,dy=spread&&idx===1?-Hc:0;
   if(!art)return Promise.resolve(null);
-  return artImage(art,W,dh).catch(function(){return null}).then(function(img){
+  return artImage(art,W,dh,spread).catch(function(){return null}).then(function(img){
     var c=document.createElement("canvas");c.width=W;c.height=Hc;var ctx=c.getContext("2d");
     ctx.fillStyle="#22303c";ctx.fillRect(0,0,W,Hc);
     if(img){ctx.save();if(flip){ctx.translate(0,Hc);ctx.scale(1,-1)}coverDraw(ctx,img,0,dy,W,dh);ctx.restore()}
@@ -1244,7 +1263,7 @@ $("refClear").addEventListener("click",function(){setRef();say("Photo removed.")
   b.addEventListener("click",function(){b.setAttribute("aria-pressed",String(b.getAttribute("aria-pressed")!=="true"))});$("styles").appendChild(b);
 });
 bindSeg("profile","profile",function(){var d={all:96,pow:114,park:90}[state.profile];state.waist=d;$("waist").value=d});
-bindSeg("flex","flex");bindSeg("ability","ability");bindSeg("letterPos","letterPos");bindSeg("pair","pair",function(){if(!cur().ai)makePattern()});
+bindSeg("flex","flex");bindSeg("ability","ability");bindSeg("letterPos","letterPos");bindSeg("pair","pair",function(){if(!cur().ai&&!cur().fixed)makePattern()});
 function bindInput(id,key,num){$(id).addEventListener("input",function(e){state[key]=num?+e.target.value:e.target.value;render()})}
 bindInput("len","len",1);bindInput("waist","waist",1);bindInput("height","height",1);bindInput("letter","letter");
 bindInput("letterColor","letterColor");bindInput("letterSize","letterSize",1);bindInput("sidewall","sidewall");
@@ -1255,9 +1274,9 @@ bindInput("bootColor","bootColor");bindInput("buckleColor","buckleColor");
 $("bindColor").addEventListener("input",function(e){state.bindColor=e.target.value;state.bindFade=false;render()});
 $("bindPresets").addEventListener("click",function(e){var b=e.target.closest("button");if(!b)return;
   if(b.dataset.c==="fade")state.bindFade=true;else{state.bindFade=false;state.bindColor=b.dataset.c;$("bindColor").value=b.dataset.c}render()});
-["c1","c2","c3"].forEach(function(id){$(id).addEventListener("input",function(){if(!cur().ai){makePattern();render()}})});
+["c1","c2","c3"].forEach(function(id){$(id).addEventListener("input",function(){if(!cur().ai&&!cur().fixed){makePattern();render()}})});
 $("aiColors").addEventListener("change",function(e){["c1","c2","c3","b1","b2","b3"].forEach(function(id){$(id).disabled=e.target.checked})});
-["b1","b2","b3"].forEach(function(id){$(id).addEventListener("input",function(){if(!cur().ai){makePattern();render()}})});
+["b1","b2","b3"].forEach(function(id){$(id).addEventListener("input",function(){if(!cur().ai&&!cur().fixed){makePattern();render()}})});
 bindSeg("surface","surface",function(){
   var base=state.surface==="base";
   $("topColors").hidden=base;$("baseColors").hidden=!base;
@@ -1300,6 +1319,26 @@ $("send").addEventListener("click",async function(){
     $("sheetStatus").textContent="Sent build request "+out.id+". We'll email you within two business days.";
   }catch(e){btn.classList.remove("is-busy");$("sheetStatus").className="status err";$("sheetStatus").textContent=e.message;btn.disabled=false}
 });
+
+/* ---------- signature designs: finished topsheets from the shop ---------- */
+var SIGNATURE=[
+  {id:"signature:edollo-91",name:"Edollo \u201991",by:"Caravaggio\u2019s Entombment, split across the pair",
+   image:"img/designs/edollo-91-pair.jpg",single:"img/designs/edollo-91-single.jpg",
+   note:"Signature design. Caravaggio\u2019s Entombment runs across both skis; pick Coordinated pair to see each ski\u2019s half."}
+];
+function syncSignature(){var a=state.tops[0];
+  Array.prototype.forEach.call(document.querySelectorAll(".sig"),function(b){b.setAttribute("aria-pressed",String(!!a&&a.id===b.dataset.id))});
+  $("sigField").hidden=state.surface==="base"}
+SIGNATURE.forEach(function(sg){
+  var b=document.createElement("button");b.type="button";b.className="sig";b.dataset.id=sg.id;b.setAttribute("aria-pressed","false");
+  var im=document.createElement("img");im.src=sg.image;im.alt="";im.loading="lazy";b.appendChild(im);
+  var meta=document.createElement("span");meta.className="sig-meta";var nm=document.createElement("b");nm.textContent=sg.name;var by=document.createElement("span");by.textContent=sg.by;
+  meta.appendChild(nm);meta.appendChild(by);b.appendChild(meta);b.setAttribute("aria-label",sg.name+", signature design");
+  b.addEventListener("click",function(){
+    state.tops[0]=state.tops[1]={image:sg.image,single:sg.single,id:sg.id,ai:false,fixed:true,name:sg.name,note:sg.note};
+    if(state.pair!=="spread"){state.pair="spread";pressSeg($("pair"),"spread")}   // the two skis are two halves of one painting
+    render();settle();say("")});
+  $("sigList").appendChild(b)});
 
 /* ---------- polish: motion and presentation only ---------- */
 function reduced(){return window.matchMedia("(prefers-reduced-motion: reduce)").matches}
