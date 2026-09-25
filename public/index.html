@@ -358,6 +358,26 @@ dialog h2{font-size:2rem;color:var(--ink)}
   .ski-in.b{animation-delay:.09s}
   @keyframes slide{from{transform:translateX(-40px);opacity:0}to{transform:none;opacity:1}}
 }
+/* ---------- motion design ---------- */
+.snow{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:0}
+.top h1 .w{display:inline-block;white-space:pre}
+@media (prefers-reduced-motion:no-preference){
+  .top h1 .w{animation:word-in .9s var(--ease) both;animation-delay:calc(var(--i) * 70ms + 120ms)}
+  @keyframes word-in{from{opacity:0;transform:translateY(.45em) rotate(1.5deg)}to{opacity:1;transform:none}}
+  .top p{animation:rise 1s var(--ease) .7s both}
+  @supports (animation-timeline:scroll()){
+    .top{animation:hero-drift linear both;animation-timeline:scroll(root);animation-range:0 90vh}
+    @keyframes hero-drift{to{background-position:center 78%}}
+    .top-inner{animation:hero-lift linear both;animation-timeline:scroll(root);animation-range:0 70vh}
+    @keyframes hero-lift{to{transform:translateY(-2.5rem);opacity:.35}}
+  }
+  @supports (animation-timeline:view()){
+    main>.block{animation:panel-in linear both;animation-timeline:view();animation-range:entry 0% entry 70%}
+    main>.block:nth-child(2){animation-range:entry 8% entry 80%}
+    main>.block:nth-child(3){animation-range:entry 16% entry 90%}
+    @keyframes panel-in{from{opacity:.15;transform:translateY(48px)}to{opacity:1;transform:none}}
+  }
+}
 @media (prefers-reduced-motion:reduce){
   *,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important;scroll-behavior:auto!important}
   .drawing .ski-outline{stroke-dashoffset:0}
@@ -399,6 +419,7 @@ dialog h2{font-size:2rem;color:var(--ink)}
 <body>
 
 <header class="top">
+  <canvas class="snow" id="snow" aria-hidden="true"></canvas>
   <div class="top-inner">
     <div class="brand">
       <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 19 L9 7 L12.5 12.5 L15.5 6 L22 19 Z" fill="currentColor"/><path d="M9 7 L12.5 12.5 L11 15 L7.3 15 Z" fill="#fff" opacity=".92"/><path d="M15.5 6 L18.7 12 L13.6 12 Z" fill="#fff" opacity=".92"/></svg>
@@ -936,7 +957,7 @@ function render(){
   var m=state.pair;
   drawSki(stage,20,geo,{art:A,cls:"ski-in",spread:m==="spread"?0:null,idx:0});
   drawSki(stage,210,geo,{art:B,flip:m==="mirror",cls:"ski-in b",spread:m==="spread"?1:null,idx:1});
-  firstPaint=false;
+  firstPaint=false;if(typeof revealArt==="function")revealArt();poke&&poke();
   if(V3.on)update3D();
   $("designName").textContent=(state.surface==="base"?"Base: ":"")+A.name;
   $("designNote").textContent=cur().note;
@@ -1505,6 +1526,38 @@ function closeSheet(){var d=$("sheet");if(!d.open||d.classList.contains("closing
   d.classList.add("closing");setTimeout(function(){d.classList.remove("closing");d.close()},230)}
 /* header shadow once the preview bar is pinned */
 if(window.IntersectionObserver)new IntersectionObserver(function(en){$("stage-wrap-el").classList.toggle("stuck",!en[0].isIntersecting)}).observe(document.querySelector(".top"));
+
+/* ---------- motion design ---------- */
+/* headline: each word rises in on its own beat */
+(function(){var h=document.querySelector(".top h1"),words=h.textContent.split(/(\s+)/),i=0;h.setAttribute("aria-label",h.textContent);h.textContent="";
+  words.forEach(function(w){if(/^\s+$/.test(w)){h.appendChild(document.createTextNode(w));return}var sp=document.createElement("span");sp.className="w";sp.setAttribute("aria-hidden","true");sp.style.setProperty("--i",i++);sp.textContent=w;h.appendChild(sp)})})();
+/* snowfall over the header photo; sleeps when the header is off screen or the tab is hidden */
+(function(){var cv=$("snow");if(!cv||reduced())return;var ctx=cv.getContext("2d"),flakes=[],W=0,Hh=0,dpr=Math.min(2,window.devicePixelRatio||1),vis=true,raf=0,t0=0;
+  function size(){var r=cv.getBoundingClientRect();W=r.width;Hh=r.height;cv.width=W*dpr;cv.height=Hh*dpr;ctx.setTransform(dpr,0,0,dpr,0,0);
+    var n=Math.round(Math.min(160,W*Hh/9000));while(flakes.length<n)flakes.push(flake(true));flakes.length=n}
+  function flake(any){var z=Math.random();return{x:Math.random()*W,y:any?Math.random()*Hh:-6,z:z,r:.6+z*2.1,vy:12+z*34,sway:Math.random()*6.28,a:.25+z*.55}}
+  function tick(t){raf=0;var dt=Math.min(.05,(t-(t0||t))/1000);t0=t;ctx.clearRect(0,0,W,Hh);
+    for(var i=0;i<flakes.length;i++){var f=flakes[i];f.y+=f.vy*dt;f.sway+=dt*(.6+f.z);f.x+=Math.sin(f.sway)*f.z*.35+dt*6;
+      if(f.y>Hh+6||f.x>W+6){flakes[i]=flake(false);flakes[i].x=Math.random()*W;continue}
+      ctx.globalAlpha=f.a;ctx.beginPath();ctx.arc(f.x,f.y,f.r,0,6.283);ctx.fillStyle="#fff";ctx.fill()}
+    if(vis&&!document.hidden)raf=requestAnimationFrame(tick)}
+  function go(){if(!raf&&vis&&!document.hidden){t0=0;raf=requestAnimationFrame(tick)}}
+  size();window.addEventListener("resize",size);document.addEventListener("visibilitychange",go);
+  if(window.IntersectionObserver)new IntersectionObserver(function(e){vis=e[0].isIntersecting;go()}).observe(cv);go()})();
+/* showroom turntable: after a few quiet seconds the 3D pair slowly orbits; any interaction stops it */
+var idle={last:performance.now(),seen:true,raf:0};
+function poke(){idle.last=performance.now()}
+["pointerdown","keydown","wheel","touchstart"].forEach(function(ev){document.addEventListener(ev,poke,{passive:true})});
+if(window.IntersectionObserver)new IntersectionObserver(function(e){idle.seen=e[0].isIntersecting}).observe($("stage3d"));
+(function spin(t){idle.raf=requestAnimationFrame(spin);
+  if(reduced()||!V3.on||!V3.renderer||V3.anim||V3.settle||!idle.seen||document.hidden||busy)return;
+  if(t-idle.last<5000||V3.phi<.3||V3.phi>2.84)return;
+  V3.theta+=.0016;draw3D()})(performance.now());
+/* artwork reveal: a new design sweeps onto the flat skis from tail to tip */
+var lastArtKey=null;
+function artKey(){var a=cur()||{};return(a.image||"")+"|"+(a.id||"")+"|"+(a.name||"")+"|"+state.seed+"|"+state.surface}
+function revealArt(){var k=artKey();if(lastArtKey!==null&&k!==lastArtKey&&!reduced()&&!V3.on){var st=$("stage");
+  if(st.animate)st.animate([{clipPath:"inset(0 100% 0 0)"},{clipPath:"inset(0 0 0 0)"}],{duration:900,easing:"cubic-bezier(.65,0,.35,1)"})}lastArtKey=k}
 
 /* first paint, then light up capabilities */
 makePattern();render();
